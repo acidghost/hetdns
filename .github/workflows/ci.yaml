@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  # renovate: datasource=github-releases depName=jdx/mise
+  MISE_VERSION: 2026.7.7
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: "go.mod"
+
+      - name: Setup mise
+        uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
+        with:
+          version: ${{ env.MISE_VERSION }}
+
+      - name: Check formatting
+        run: |
+          just fmt
+          git diff --exit-code
+
+      - name: Run linter
+        run: just lint
+
+      - name: Run race tests
+        run: just test-race
+
+      - name: Build binary
+        run: just build
+
+      - name: Smoke test
+        run: |
+          ./build/hetdns-linux-amd64 -help
+          ./build/hetdns-linux-amd64 -version
+          HETDNS_HETZNER_TOKEN=test-token ./build/hetdns-linux-amd64 -config config.example.json -check

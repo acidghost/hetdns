@@ -1,0 +1,160 @@
+{{define "index.html"}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="refresh" content="30">
+  <title>hetdns status</title>
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<header>
+  <div>
+    <h1>hetdns</h1>
+    <p>Hetzner dynamic DNS reconciler</p>
+  </div>
+  <span class="badge {{.Overall}}">{{.Overall}}</span>
+</header>
+
+<main>
+  <section class="summary">
+    <article>
+      <h2>Scheduler</h2>
+      <strong>{{.Scheduler.State}}</strong>
+      <small>cycle {{.Scheduler.Cycle}}</small>
+    </article>
+    <article>
+      <h2>Last cycle</h2>
+      <strong>
+        {{if .Scheduler.LastCycleResult}}
+          {{.Scheduler.LastCycleResult}}
+        {{else}}
+          pending
+        {{end}}
+      </strong>
+      <small>
+        {{clock .Scheduler.LastCycleEnd}} ·
+        {{duration .Scheduler.LastDuration}}
+      </small>
+    </article>
+    <article>
+      <h2>Next cycle</h2>
+      <strong>{{clock .Scheduler.NextCycle}}</strong>
+      <small>uptime {{.Uptime}}</small>
+    </article>
+  </section>
+
+  <section>
+    <h2>Address sources</h2>
+    <div class="table">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Family</th>
+            <th>Address</th>
+            <th>Last success</th>
+            <th>Duration</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Sources}}
+          <tr>
+            <td data-label="ID">{{.ID}}</td>
+            <td data-label="Family">{{.Family}}</td>
+            <td data-label="Address">
+              <code>{{if .Address}}{{.Address}}{{else}}—{{end}}</code>
+            </td>
+            <td data-label="Last success">{{clock .LastSuccess}}</td>
+            <td data-label="Duration">{{duration .Duration}}</td>
+            <td data-label="Status">
+              {{if .Error}}
+                <span class="error" title="{{.Error}}">error</span>
+              {{else if .LastSuccess.IsZero}}
+                pending
+              {{else}}
+                ok
+              {{end}}
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>DNS RRsets</h2>
+    <div class="table">
+      <table>
+        <thead>
+          <tr>
+            <th>Record</th>
+            <th>Type</th>
+            <th>Source</th>
+            <th>Desired</th>
+            <th>Observed before check</th>
+            <th>State</th>
+            <th>Last check</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Records}}
+          <tr>
+            <td data-label="Record">
+              <strong>{{.FQDN}}</strong>
+              <small>{{.ID}}</small>
+            </td>
+            <td data-label="Type">{{.Type}}</td>
+            <td data-label="Source">{{.Source}}</td>
+            <td data-label="Desired">
+              <code>{{if .Desired}}{{.Desired}}{{else}}—{{end}}</code>
+            </td>
+            <td data-label="Observed">
+              {{if .Observed}}
+                {{range .Observed}}<code>{{.}}</code> {{end}}
+              {{else}}
+                —
+              {{end}}
+            </td>
+            <td data-label="State">
+              <span class="state {{.State}}" title="{{.Error}}">
+                {{.State}}
+              </span>
+            </td>
+            <td data-label="Last check">{{clock .LastCheck}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recent events</h2>
+    {{if .Events}}
+    <ol class="events">
+      {{range .Events}}
+      <li>
+        <time>{{clock .Time}}</time>
+        <strong>{{.Kind}}</strong>
+        {{if .ID}}<code>{{.ID}}</code>{{end}}
+        — {{.Message}}
+      </li>
+      {{end}}
+    </ol>
+    {{else}}
+    <p class="empty">No update or failure events yet.</p>
+    {{end}}
+  </section>
+</main>
+
+<footer>
+  hetdns {{.Build.Version}} · commit {{.Build.Commit}} ·
+  started {{clock .StartTime}}
+</footer>
+</body>
+</html>
+{{end}}

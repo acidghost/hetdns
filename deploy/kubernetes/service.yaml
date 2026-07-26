@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hetdns
+  labels:
+    app.kubernetes.io/name: hetdns
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: hetdns
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

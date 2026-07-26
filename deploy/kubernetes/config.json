@@ -1,0 +1,20 @@
+{
+  "sources": {
+    "wan-v4": {
+      "type": "http",
+      "family": "ipv4",
+      "url": "https://ip.me",
+      "timeout": "10s",
+      "user_agent": ""
+    }
+  },
+  "records": {
+    "home-v4": {
+      "zone": "example.com",
+      "name": "home",
+      "type": "A",
+      "source": "wan-v4",
+      "ttl": 300
+    }
+  }
+}
