@@ -1,3 +1,5 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
 program := 'hetdns'
 
 version := 'SNAPSHOT-'+`git describe --tags --always --dirty 2>/dev/null || printf 'unknown'`
@@ -44,6 +46,41 @@ build-dir:
 
 run *args: build
     ./build/{{program}}-{{goos}}-{{goarch}} {{args}}
+
+helm-lint:
+    helm lint deploy/charts/{{program}}
+
+helm-conform:
+    helm template {{program}} deploy/charts/{{program}} \
+        | kubeconform -summary
+    helm template {{program}} deploy/charts/{{program}} \
+        --set config.existingConfigMap=external-hetdns-config \
+        --set-string runtime.listen=:9090 \
+        --set ingress.enabled=true \
+        --set ingress.className=nginx \
+        --set 'ingress.hosts[0].host=hetdns.example.com' \
+        --set 'ingress.hosts[0].paths[0].path=/' \
+        --set 'ingress.hosts[0].paths[0].pathType=Prefix' \
+        --set 'ingress.tls[0].secretName=hetdns-tls' \
+        --set 'ingress.tls[0].hosts[0]=hetdns.example.com' \
+        | kubeconform -summary
+
+helm-package version='0.0.0': build-dir
+    release_version='{{version}}'; release_version="${release_version#version=}"; \
+        helm package \
+            --destination build \
+            --version "$release_version" \
+            --app-version "$release_version" \
+            deploy/charts/{{program}}
+
+helm-push version:
+    release_version='{{version}}'; release_version="${release_version#version=}"; \
+        archive="build/{{program}}-${release_version}.tgz"; \
+        if [[ ! -f "$archive" ]]; then just helm-package "$release_version"; fi; \
+        helm push "$archive" 'oci://{{container_registry}}/acidghost/charts'
+
+actions-lint *args:
+    actionlint -verbose {{args}}
 
 vendor:
     go mod tidy

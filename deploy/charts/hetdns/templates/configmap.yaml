@@ -1,0 +1,12 @@
+{{- if not .Values.config.existingConfigMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "hetdns.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hetdns.labels" . | nindent 4 }}
+data:
+  config.json: |
+    {{- .Values.config.raw | nindent 4 }}
+{{- end }}

@@ -1,0 +1,22 @@
+hetdns has been installed as a singleton.
+
+Create the referenced Hetzner token Secret if it does not already exist:
+
+  kubectl -n {{ .Release.Namespace }} create secret generic {{ include "hetdns.tokenSecretName" . }} \
+    --from-literal={{ .Values.tokenSecret.key }}='YOUR_HETZNER_CLOUD_TOKEN'
+
+{{- if .Values.config.existingConfigMap }}
+The release uses key {{ .Values.config.existingConfigMapKey }} from ConfigMap {{ .Values.config.existingConfigMap }}.
+{{- else }}
+The chart's safe example.com configuration is installed by default. Supply a real config,
+for example with --set-file config.raw=./config.json, before using hetdns.
+{{- end }}
+
+Open the status UI locally:
+
+  kubectl -n {{ .Release.Namespace }} port-forward service/{{ include "hetdns.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+
+Then visit http://localhost:{{ .Values.service.port }}/. The UI contains operational data;
+protect any ingress with authentication and TLS.
+
+WARNING: only one replica is supported; do not scale this Deployment above one.

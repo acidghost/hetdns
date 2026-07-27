@@ -1,0 +1,11 @@
+apiVersion: v2
+name: hetdns
+version: 0.0.0
+appVersion: "0.0.0"
+description: Hetzner Cloud dynamic DNS reconciler
+home: https://github.com/acidghost/hetdns
+sources:
+  - https://github.com/acidghost/hetdns
+type: application
+annotations:
+  artifacthub.io/license: Unlicense

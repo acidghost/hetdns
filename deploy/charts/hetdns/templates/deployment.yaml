@@ -1,0 +1,97 @@
+{{- include "hetdns.replicaGuard" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hetdns.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hetdns.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "hetdns.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "hetdns.selectorLabels" . | nindent 8 }}
+      {{- if not .Values.config.existingConfigMap }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ include "hetdns.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          args:
+            - -config=/etc/hetdns/config.json
+            - -token-file=/run/secrets/hetdns/token
+          env:
+            - name: HETDNS_INTERVAL
+              value: {{ .Values.runtime.interval | quote }}
+            - name: HETDNS_LISTEN
+              value: {{ .Values.runtime.listen | quote }}
+            - name: HETDNS_LOG_LEVEL
+              value: {{ .Values.runtime.logLevel | quote }}
+            - name: HETDNS_LOG_FORMAT
+              value: {{ .Values.runtime.logFormat | quote }}
+            - name: HETDNS_HISTORY_LIMIT
+              value: {{ .Values.runtime.historyLimit | quote }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ include "hetdns.listenPort" . }}
+              protocol: TCP
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/hetdns/config.json
+              subPath: config.json
+              readOnly: true
+            - name: token
+              mountPath: /run/secrets/hetdns/token
+              subPath: token
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "hetdns.configMapName" . }}
+            items:
+              - key: {{ if .Values.config.existingConfigMap }}{{ required "config.existingConfigMapKey is required when using an existing ConfigMap" .Values.config.existingConfigMapKey }}{{ else }}config.json{{ end }}
+                path: config.json
+        - name: token
+          secret:
+            secretName: {{ include "hetdns.tokenSecretName" . }}
+            items:
+              - key: {{ required "tokenSecret.key is required" .Values.tokenSecret.key }}
+                path: token
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

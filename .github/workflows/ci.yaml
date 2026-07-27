@@ -5,49 +5,155 @@ on:
     branches:
       - main
   pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
 
 env:
   # renovate: datasource=github-releases depName=jdx/mise
   MISE_VERSION: 2026.7.7
 
-permissions:
-  contents: read
-
 jobs:
-  ci:
+  changes:
+    name: Changes
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read # needed by paths-filter
+    outputs:
+      gha: ${{ steps.outputs.outputs.gha }}
+      go: ${{ steps.outputs.outputs.go }}
+      helm: ${{ steps.outputs.outputs.helm }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
-      - name: Setup Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        id: filter
+        if: github.event_name == 'pull_request'
         with:
-          go-version-file: "go.mod"
+          filters: |
+            gha:
+              - '.github/workflows/*.yaml'
+              - 'justfile'
+              - 'mise.toml'
+            go:
+              - '.github/workflows/ci.yaml'
+              - '**/*.go'
+              - 'internal/web/ui/**'
+              - 'vendor/**'
+              - 'go.mod'
+              - 'go.sum'
+              - 'config.example.json'
+              - '.golangci.yaml'
+              - 'Dockerfile'
+              - 'justfile'
+              - 'mise.toml'
+            helm:
+              - '.github/workflows/ci.yaml'
+              - 'deploy/charts/**'
+              - 'justfile'
+              - 'mise.toml'
+      - name: Export change filters
+        id: outputs
+        env:
+          FILTER_GHA: ${{ steps.filter.outputs.gha }}
+          FILTER_GO: ${{ steps.filter.outputs.go }}
+          FILTER_HELM: ${{ steps.filter.outputs.helm }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            {
+              echo "gha=true"
+              echo "go=true"
+              echo "helm=true"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "gha=${FILTER_GHA}"
+              echo "go=${FILTER_GO}"
+              echo "helm=${FILTER_HELM}"
+            } >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Setup mise
-        uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
+  gha:
+    name: GitHub Actions
+    needs: changes
+    if: needs.changes.outputs.gha == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
         with:
           version: ${{ env.MISE_VERSION }}
+      - run: just actions-lint
 
-      - name: Check formatting
-        run: |
-          just fmt
-          git diff --exit-code
-
-      - name: Run linter
-        run: just lint
-
-      - name: Run race tests
-        run: just test-race
-
-      - name: Build binary
-        run: just build
-
-      - name: Smoke test
+  go:
+    name: Go
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
+        with:
+          version: ${{ env.MISE_VERSION }}
+      - run: just lint
+      - run: just test-race
+      - run: just build
+      - name: Smoke test CLI and config
         run: |
           ./build/hetdns-linux-amd64 -help
           ./build/hetdns-linux-amd64 -version
           HETDNS_HETZNER_TOKEN=test-token ./build/hetdns-linux-amd64 -config config.example.json -check
+
+  helm:
+    name: Helm
+    needs: changes
+    if: needs.changes.outputs.helm == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
+        with:
+          version: ${{ env.MISE_VERSION }}
+      - run: just helm-lint
+      - run: just helm-conform
+
+  ci-passed:
+    name: CI Passed
+    needs: [changes, gha, go, helm]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions: {}
+    env:
+      CHANGES_RESULT: ${{ needs.changes.result }}
+      GHA_RESULT: ${{ needs.gha.result }}
+      GO_RESULT: ${{ needs.go.result }}
+      HELM_RESULT: ${{ needs.helm.result }}
+    steps:
+      - name: Check required jobs
+        run: |
+          [[ "$CHANGES_RESULT" == "success" ]]
+          for result in "$GHA_RESULT" "$GO_RESULT" "$HELM_RESULT"; do
+            [[ "$result" == "success" || "$result" == "skipped" ]]
+          done

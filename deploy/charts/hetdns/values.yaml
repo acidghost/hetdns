@@ -1,0 +1,124 @@
+replicaCount: 1
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/acidghost/hetdns
+  # An empty tag uses the immutable chart appVersion.
+  tag: ""
+  # When set, digest takes precedence over tag (for example sha256:...).
+  digest: ""
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+
+config:
+  # raw is ignored when existingConfigMap is set.
+  raw: |
+    {
+      "sources": {
+        "wan-v4": {
+          "type": "http",
+          "family": "ipv4",
+          "url": "https://ip.me",
+          "timeout": "10s",
+          "user_agent": ""
+        }
+      },
+      "records": {
+        "home-v4": {
+          "zone": "example.com",
+          "name": "home",
+          "type": "A",
+          "source": "wan-v4",
+          "ttl": 300
+        }
+      }
+    }
+  existingConfigMap: ""
+  existingConfigMapKey: config.json
+
+tokenSecret:
+  # The chart references this Secret but never creates it.
+  name: hetdns-token
+  key: token
+
+runtime:
+  interval: 5m
+  # The chart derives the named container port used by probes and the Service
+  # from this address, so non-default ports remain internally consistent.
+  listen: ":8080"
+  logLevel: info
+  logFormat: json
+  historyLimit: 100
+
+# Standard OpenTelemetry variables can be supplied here as well.
+extraEnv: []
+#  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+#    value: http://opentelemetry-collector.observability:4318
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  #  - host: hetdns.example.com
+  #    paths:
+  #      - path: /
+  #        pathType: Prefix
+  tls: []
+  #  - secretName: hetdns-tls
+  #    hosts:
+  #      - hetdns.example.com
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 24Mi
+  limits:
+    cpu: 200m
+    memory: 64Mi
+
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  failureThreshold: 12
+  periodSeconds: 5
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: http
+  periodSeconds: 10
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  periodSeconds: 20
+  failureThreshold: 3
+
+terminationGracePeriodSeconds: 20
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
