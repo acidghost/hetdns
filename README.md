@@ -228,7 +228,7 @@ IMAGE=ghcr.io/acidghost/hetdns@sha256:RELEASE_DIGEST
 
 cosign verify \
   --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
-  --certificate-identity-regexp='^https://github.com/acidghost/hetdns/.github/workflows/publish-release.yaml@refs/tags/v' \
+  --certificate-identity-regexp='^https://github.com/acidghost/hetdns/.github/workflows/release.yaml@refs/tags/v' \
   "$IMAGE"
 ```
 
