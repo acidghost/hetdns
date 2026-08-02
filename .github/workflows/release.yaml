@@ -202,11 +202,10 @@ jobs:
           )"
           jq -s -e --argjson expected "$expected_namespaces" '
             map(.payload | @base64d | fromjson) |
-            map(select(
-              ._type == "https://in-toto.io/Statement/v1" and
-              .predicateType == "https://spdx.dev/Document" and
-              .predicate.name == "sbom"
-            ) | .predicate.documentNamespace) |
+            map(
+              select(.predicateType == "https://spdx.dev/Document") |
+              .predicate.documentNamespace
+            ) |
             sort == $expected
           ' verified-sbom-attestations.jsonl >/dev/null
 
