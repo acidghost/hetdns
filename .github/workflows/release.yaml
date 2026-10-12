@@ -12,8 +12,6 @@ concurrency:
 permissions: {}
 
 env:
-  # renovate: datasource=github-releases depName=jdx/mise
-  MISE_VERSION: 2026.9.12
   IMAGE_REPOSITORY: ghcr.io/acidghost/hetdns
   CHART_REPOSITORY: ghcr.io/acidghost/charts/hetdns
 
@@ -224,7 +222,7 @@ jobs:
 
       - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
         with:
-          version: ${{ env.MISE_VERSION }}
+          version: 2026.9.12
           cache: false
 
       - name: Log in to GHCR
