@@ -1,6 +1,10 @@
 [tools]
 actionlint = "1.7.12"
+go = "1.27.3"
 golangci-lint = "2.15.0"
 helm = "4.3.1"
 just = "1.59.0"
 kubeconform = "0.8.0"
+
+[env]
+GOTOOLCHAIN = "local"
