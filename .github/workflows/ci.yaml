@@ -89,7 +89,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e # v5.2.3
         with:
-          version: 2026.10.19
+          version: 2026.10.25
       - run: just actions-lint
 
   go:
@@ -105,7 +105,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e # v5.2.3
         with:
-          version: 2026.10.19
+          version: 2026.10.25
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           cache-dependency-path: |
@@ -133,7 +133,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e # v5.2.3
         with:
-          version: 2026.10.19
+          version: 2026.10.25
       - run: just helm-lint
       - run: just helm-conform
 
